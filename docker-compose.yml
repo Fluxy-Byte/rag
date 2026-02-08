@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: chroma
+    environment:
+      - ALLOW_RESET=TRUE
+    volumes:
+      - chroma_data:/chroma/.chroma
+    ports:
+      - "8000:8000"
+
+  api:
+    build: .
+    container_name: rag-api
+    depends_on:
+      - chroma
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - CHROMA_HOST=http://chroma:8000
+      # Defina no .env ou aqui (compose lê .env automaticamente):
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./data:/app/data
+      - ./models:/app/models
+
+volumes:
+  chroma_data:

@@ -1,0 +1,33 @@
+# Virtual envs
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Env vars
+.env
+.env.local
+
+# Dados / artefatos
+data/raw/*
+data/processed/*
+chroma/
+
+# Models (grandes)
+models/*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Docker
+*.pid
+.dockerignore
