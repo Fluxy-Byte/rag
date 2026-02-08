@@ -17,7 +17,7 @@
       - CHROMA_HOST=http://chroma:8000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
-      - "8000:3000"        # porta externa fixa 8000 -> interna 3000
+      - "80:3000"        # porta externa fixa 8000 -> interna 3000
     volumes:
       - ./.env:/app/.env:ro
       - ./data:/app/data
