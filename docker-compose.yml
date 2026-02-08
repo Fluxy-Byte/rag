@@ -6,7 +6,6 @@
       - ALLOW_RESET=TRUE
     volumes:
       - chroma_data:/chroma/.chroma
-    # Se precisar expor, altere a porta externa; aqui usamos 8001 para não conflitar com a API
     ports:
       - "8001:8000"
 
@@ -21,7 +20,7 @@
       - CHROMA_HOST=http://chroma:8000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
-      - "${API_PORT:-8000}:3000"  # porta externa da API (pode ser 8000 na VPS)
+      - "8000:3000"        # porta externa fixa 8000 -> interna 3000
     volumes:
       - ./.env:/app/.env:ro
       - ./data:/app/data
