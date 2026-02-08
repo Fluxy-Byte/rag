@@ -1,17 +1,14 @@
 ﻿services:
   chroma:
     image: ghcr.io/chroma-core/chroma:latest
-    container_name: chroma
     environment:
       - ALLOW_RESET=TRUE
     volumes:
       - chroma_data:/chroma/.chroma
-    ports:
-      - "8001:8000"
+    # Sem exposição externa; API acessa em http://chroma:8000
 
   api:
     build: .
-    container_name: rag-api
     depends_on:
       - chroma
     environment:
