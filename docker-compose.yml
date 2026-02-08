@@ -1,6 +1,4 @@
-version: "3.9"
-
-services:
+﻿services:
   chroma:
     image: ghcr.io/chroma-core/chroma:latest
     container_name: chroma
@@ -20,7 +18,6 @@ services:
       - PORT=3000
       - HOST=0.0.0.0
       - CHROMA_HOST=http://chroma:8000
-      # Defina no .env ou aqui (compose lê .env automaticamente):
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
       - "3000:3000"

@@ -24,10 +24,14 @@ models/*
 Thumbs.db
 .vscode/
 .idea/
+.pytest_cache/
+.coverage
+.python-version
 
 # Logs
 *.log
 
 # Docker
 *.pid
-.dockerignore
+docker-compose.override.yml
+

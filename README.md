@@ -1,51 +1,46 @@
-# RAG Local + Google ADK + Chroma
+﻿# RAG Local + Google ADK + Chroma
 
-Pipeline RAG local (ingestão de PDFs/TXTs), embeddings SentenceTransformers, base vetorial Chroma (local ou remota) e agente ADK com ferramenta `local_rag` citando fontes.
+Stack: FastAPI + Google ADK (LiteLLM/OpenAI) + SentenceTransformers (all-MiniLM-L6-v2) + Chroma (persistente local ou servidor remoto na VPS).
+
+## Destaques
+- Ingestão de PDFs/TXTs com chunking configurável (tamanho e overlap) salvo em Chroma persistente.
+- Suporta Chroma local (`./chroma`) ou remoto via `CHROMA_HOST` (ex.: VPS exposta em 8000).
+- Contexto por usuário: o campo `user_id` vira `session_id` padrão, isolando histórico de cada usuário.
+- Tool ADK `local_rag` cita a fonte no formato `[arquivo#chunk]` em cada resposta.
+- Watcher opcional reindexa automaticamente novos arquivos em `data/raw`.
 
 ## Estrutura
-- `src/`
-  - `settings.py` — configurações (paths, modelo, top_k, modelo LLM, etc.).
-  - `chroma_setup.py` — cliente Chroma local (persistente) ou remoto (`CHROMA_HOST`).
-  - `chunker.py` — leitura PDF/TXT e chunking com overlap.
-  - `rag.py` — ingestão e busca no Chroma.
-  - `cli.py` — ingestão, busca manual e watcher.
-  - `watcher.py` — monitora `data/raw` e reindexa automaticamente.
-  - `adk_app.py` — tool `local_rag`, runner ADK, gera respostas.
-  - `server.py` — FastAPI em `/query`, `/ingest`, `/debug/search`.
-- `scripts/patch_chromadb.py` — hotfix compatibilidade chromadb + pydantic v2 (aplicado no build).
-- `docker-compose.yml` — sobe `chroma` + `api`.
-- `Dockerfile` — imagem da API.
+- `src/settings.py` — configurações gerais (paths, top_k, modelo, porta, etc.).
+- `src/chroma_setup.py` — client Chroma persistente local ou HTTP se `CHROMA_HOST` estiver definido.
+- `src/chunker.py` — leitura de PDF/TXT e divisão em chunks com overlap.
+- `src/rag.py` — ingestão/busca no Chroma.
+- `src/cli.py` — CLI para ingestir, buscar e rodar watcher.
+- `src/watcher.py` — monitora `data/raw` e dispara reindexação.
+- `src/adk_app.py` — monta agente ADK e tool `local_rag`.
+- `src/server.py` — FastAPI com endpoints `/query`, `/ingest`, `/debug/search`, `/health`.
+- `scripts/patch_chromadb.py` — hotfix aplicado no build Docker para chromadb + pydantic.
+- `docker-compose.yml` — serviços `chroma` e `api`.
 
-## Requisitos
+## Pré-requisitos
 - Python 3.10+
 - Docker (para usar compose)
-- Chave OpenAI (`OPENAI_API_KEY`)
+- `OPENAI_API_KEY` válido (sem prefixo `Bearer`).
 
-## Ambiente local
+## Setup local rápido
 ```bash
 python -m venv .venv
 .\.venv\Scripts\pip install -r requirements.txt
-```
-
-Baixar modelo de embedding (já fizemos, mas caso precise):
-```bash
+# opcional: baixar o modelo de embedding (já salvo em models/)
 .\.venv\Scripts\python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2').save('models/all-MiniLM-L6-v2')"
-```
-
-## Variáveis (.env)
-Veja `.env.example` e copie para `.env`:
-```bash
+# configure .env
 cp .env.example .env
 ```
 
-## Ingestão / teste manual
+## Ingestão e busca manual
 ```bash
-.\.venv\Scripts\python -m src.cli ingest --reset   # carrega data/raw
+.\.venv\Scripts\python -m src.cli ingest --reset   # lê data/raw e recria a coleção
 .\.venv\Scripts\python -m src.cli search "pergunta"
-```
-
-Watcher automático:
-```bash
+# watcher (reindexa quando chega arquivo novo em data/raw)
 .\.venv\Scripts\python -m src.cli watch
 ```
 
@@ -54,43 +49,38 @@ Watcher automático:
 $env:PORT="3000"; $env:HOST="0.0.0.0"
 .\.venv\Scripts\python -m src.server
 ```
-Consulta:
+Exemplo de requisição mantendo contexto por usuário:
 ```bash
 curl -X POST http://localhost:3000/query \
   -H "Content-Type: application/json" \
   -d '{"question":"ping","user_id":"alice"}'
 ```
-`user_id` vira o `session_id` se não enviado, isolando contexto por usuário.
+Se `session_id` não for enviado, ele assume o `user_id` para separar sessões.
 
 ## Chroma remoto (VPS)
-- Suba um servidor Chroma (ex: `chromadb serve --host 0.0.0.0 --port 8000`).
-- Defina `CHROMA_HOST=http://<ip-vps>:8000` no `.env`.
-- A ingestão e buscas passam a usar o Chroma remoto.
+1. Na VPS, suba só o serviço do Chroma:
+```bash
+docker compose up -d chroma
+```
+(ou `chromadb serve --host 0.0.0.0 --port 8000` se preferir).
+2. Abra a porta 8000 na VPS.
+3. No cliente/API, defina `CHROMA_HOST=http://<ip-vps>:8000` no `.env`.
+4. Rode ingestão e servidor normalmente; tudo passa a usar o vetor remoto.
 
-## Docker / Compose
-Build e subir tudo (API + Chroma):
+## Docker / Compose (API + Chroma juntos)
 ```bash
 docker compose up -d --build
 ```
-Portas:
-- API: 3000
-- Chroma: 8000 (exposta para debug, pode restringir se quiser)
-
-Volumes:
-- `chroma_data` (vetor) persiste no Docker.
-- `./data` e `./models` montados na API.
+Portas padrão: API 3000, Chroma 8000. Volumes: `chroma_data` (vetores), `./data`, `./models` montados na API.
 
 ## Endpoints
 - `POST /query` `{ question, user_id, session_id?, top_k? }`
-- `POST /ingest` `{ reset?, chunk_size?, overlap?, source_dir? }` (assíncrono via background)
-- `POST /debug/search` `{ question, top_k? }` (retorna matches brutos)
+- `POST /ingest` `{ reset?, chunk_size?, overlap?, source_dir? }`
+- `POST /debug/search` `{ question, top_k? }`
 - `GET /health`
 
-## Notas
-- Patch do chromadb é aplicado no build (`scripts/patch_chromadb.py`). Se reinstalar chromadb localmente, rode o script.
-- Prompt do agente cita fontes no formato `[fonte: arquivo#chunk]`; se não achar evidência, responde que não encontrou.
-
 ## Troubleshooting
-- Porta ocupada: `netstat -ano | findstr :3000` e `taskkill /PID <pid> /F`.
-- 401/403 OpenAI: verifique `OPENAI_API_KEY` (sem prefixo `Bearer`).
-- Chroma remoto indisponível: cheque `CHROMA_HOST` e latência da VPS.
+- Porta em uso: `netstat -ano | findstr :3000` e `taskkill /PID <pid> /F`.
+- 401/403 OpenAI: verifique `OPENAI_API_KEY` (sem `Bearer`).
+- Chroma remoto lento/offline: confira `CHROMA_HOST` e latência da VPS.
+- Se reinstalar chromadb localmente, rode `python scripts/patch_chromadb.py`.
