@@ -5,19 +5,19 @@
       - ALLOW_RESET=TRUE
     volumes:
       - chroma_data:/chroma/.chroma
-    # Sem exposição externa; API acessa em http://chroma:8000
+    # sem porta exposta; API acessa via http://chroma:8000
 
   api:
     build: .
     depends_on:
       - chroma
     environment:
-      - PORT=3000           # porta interna da API
+      - PORT=3000
       - HOST=0.0.0.0
       - CHROMA_HOST=http://chroma:8000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
-      - "80:3000"        # porta externa fixa 8000 -> interna 3000
+      - "8000:3000"   # externa 8000 -> interna 3000
     volumes:
       - ./.env:/app/.env:ro
       - ./data:/app/data
